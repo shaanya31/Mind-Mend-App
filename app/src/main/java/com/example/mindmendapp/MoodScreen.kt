@@ -20,11 +20,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +39,8 @@ import com.example.mindmendapp.model.MoodEntry
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+/* ---------- Complete fixed MoodScreen.kt ---------- */
 
 // --- EMOJIS ---
 private val MOOD_EMOJIS = mapOf(
@@ -99,16 +99,19 @@ fun MoodScreen() {
 
             // Chip sizing modifier (prevents vertical wrapping)
             val chipBaseModifier = Modifier
-                .widthIn(min = 96.dp)   // <- prevents long labels from wrapping vertically
+                .widthIn(min = 96.dp)
                 .padding(vertical = 4.dp)
 
-            // ---- Row 1: horizontally scrollable (safe on narrow screens) ----
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(120.dp),
-                modifier = Modifier.wrapContentWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Row 1 (first 4 moods) — horizontally scrollable to be safe on narrow screens
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(moods) { mood ->
+                Spacer(modifier = Modifier.width(6.dp))
+                moods.take(4).forEach { mood ->
                     MoodChip(
                         mood = mood,
                         selected = selectedMood,
@@ -116,28 +119,30 @@ fun MoodScreen() {
                         modifier = chipBaseModifier
                     )
                 }
+                Spacer(modifier = Modifier.width(6.dp))
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // ---- Row 2: horizontally scrollable ----
-//            Row(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .horizontalScroll(rememberScrollState()),
-//                horizontalArrangement = Arrangement.spacedBy(8.dp)
-//            ) {
-//                Spacer(modifier = Modifier.width(6.dp))
-//                moods.drop(4).forEach { mood ->
-//                    MoodChip(
-//                        mood = mood,
-//                        selected = selectedMood,
-//                        onSelect = { selectedMood = it },
-//                        modifier = chipBaseModifier
-//                    )
-//                }
-//                Spacer(modifier = Modifier.width(6.dp))
-//            }
+            // Row 2 (remaining moods) — horizontally scrollable
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.width(6.dp))
+                moods.drop(4).forEach { mood ->
+                    MoodChip(
+                        mood = mood,
+                        selected = selectedMood,
+                        onSelect = { selectedMood = it },
+                        modifier = chipBaseModifier
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -226,18 +231,24 @@ fun MoodScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Recent list (takes remaining space)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
                 items(savedEntries.take(5)) { entry ->
-                    RecentEntryCard(entry)
+                    RecentEntryCard(
+                        entry = entry,
+                        onDelete = { e ->
+                            scope.launch { dataStore.deleteEntry(e) }
+                        }
+                    )
                 }
             }
-        }
-    }
-}
+        } // Column
+    } // Box
+} // MoodScreen
 
 // ---------------- MoodChip ----------------
 
@@ -248,7 +259,6 @@ fun MoodChip(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier // allow sizing passed from caller
 ) {
-
     val isSelected = mood == selected
 
     val scale by animateFloatAsState(if (isSelected) 1.10f else 1f, animationSpec = tween(160))
@@ -309,7 +319,10 @@ fun MoodChip(
 // ---------------- Recent Entry ----------------
 
 @Composable
-fun RecentEntryCard(entry: MoodEntry) {
+fun RecentEntryCard(
+    entry: MoodEntry,
+    onDelete: (MoodEntry) -> Unit
+) {
     val formatter = SimpleDateFormat("hh:mm a • dd MMM", Locale.getDefault())
 
     Card(
@@ -318,11 +331,31 @@ fun RecentEntryCard(entry: MoodEntry) {
             .fillMaxWidth()
             .padding(vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text("${entry.mood} — ${formatter.format(Date(entry.timestamp))}", fontWeight = FontWeight.Bold)
-            if (!entry.note.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text("Note: ${entry.note}")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+
+            Column {
+                Text(
+                    "${entry.mood} — ${formatter.format(Date(entry.timestamp))}",
+                    fontWeight = FontWeight.Bold
+                )
+                if (!entry.note.isNullOrBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Note: ${entry.note}")
+                }
+            }
+
+            IconButton(onClick = { onDelete(entry) }) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete entry",
+                    tint = Color(0xFFB00020)
+                )
             }
         }
     }
